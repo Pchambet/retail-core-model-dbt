@@ -1,0 +1,222 @@
+version: 2
+
+models:
+  - name: fct_sales_lines
+    description: >
+      Sales of the US region in the group's core retail model. **Grain: one row per sale or return
+      line of a store ticket or of a web order**, after de-duplication of re-exported lines.
+      Amounts are without sales tax, in US dollars and in euros at the rate of the business day.
+      A return is its own row with negative quantity and amount, on the day it happened.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sales_line_id
+        description: Surrogate key of the line (source system, document, line, kind).
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: source_record_key
+        description: Readable key of the source record, to trace the line back to its platform.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: source_system
+        description: Platform the line comes from (pos or oms).
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [pos, oms]
+      - name: document_id
+        description: Ticket number (POS) or order identifier (OMS).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: line_kind
+        description: sale or return.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [sale, return]
+      - name: business_date
+        description: The store-local day of the sale or of the return.
+        data_type: date
+        constraints:
+          - type: not_null
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: occurred_at_local
+        description: Wall-clock time in the store's time zone.
+        data_type: timestamp
+        data_tests: [not_null]
+      - name: group_store_id
+        description: Store of the group reference.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: group_store_id
+      - name: channel_code
+        description: Sales channel of the store.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_channel')
+                field: channel_code
+      - name: group_sku
+        description: Product of the group catalogue.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: group_sku
+      - name: quantity_pieces
+        description: Quantity in pieces (a box of six plates is 6). Negative for a return.
+        data_type: integer
+        data_tests: [not_null]
+      - name: net_amount_usd
+        description: Amount after discounts, without sales tax, in US dollars. Negative for a return.
+        data_type: decimal(18,2)
+        data_tests: [not_null]
+      - name: tax_amount_usd
+        description: US sales tax of the line. Empty for the OMS, which exports amounts without tax.
+        data_type: decimal(18,2)
+      - name: fx_rate_date
+        description: Day of the USD to EUR fixing used (the latest on or before the business day).
+        data_type: date
+        data_tests: [not_null]
+      - name: fx_rate_usd_to_eur
+        description: Euros for one US dollar on that fixing.
+        data_type: decimal(10,4)
+        data_tests: [not_null]
+      - name: net_amount_eur
+        description: Net amount converted to euros and rounded to the cent, line by line.
+        data_type: decimal(18,2)
+        data_tests: [not_null]
+      - name: loaded_at
+        description: When the source row landed. Drives the incremental load.
+        data_type: timestamp
+        data_tests: [not_null]
+    data_tests:
+      - dbt_utils.expression_is_true:
+          name: fct_sales_lines_sign_follows_line_kind
+          arguments:
+            expression: "(line_kind = 'return') = (quantity_pieces < 0) and (line_kind = 'return') = (net_amount_usd < 0)"
+
+  - name: dim_store
+    description: Stores of the group reference, with the local code used by the US platforms.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: group_store_id
+        description: Store identifier in the core model.
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: store_code
+        description: Local store code.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: store_name
+        description: Store name.
+        data_type: varchar
+      - name: city
+        description: City.
+        data_type: varchar
+      - name: state
+        description: US state.
+        data_type: varchar
+      - name: time_zone
+        description: IANA time zone that defines the store's business day.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: channel_code
+        description: Sales channel of the store.
+        data_type: varchar
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_channel')
+                field: channel_code
+      - name: sales_tax_rate
+        description: Combined sales tax rate of the store's location. Empty for e-commerce.
+        data_type: decimal(8,5)
+
+  - name: dim_product
+    description: Product catalogue of the group.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: group_sku
+        description: Product identifier in the core model.
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: product_name
+        description: Product name.
+        data_type: varchar
+      - name: metier
+        description: Product family (métier) of the house.
+        data_type: varchar
+        data_tests: [not_null]
+
+  - name: dim_date
+    description: Calendar of the group, one row per day.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: date_day
+        description: Calendar day.
+        data_type: date
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: fiscal_year
+        description: Fiscal year.
+        data_type: integer
+      - name: fiscal_month
+        description: Fiscal month.
+        data_type: integer
+      - name: fiscal_week
+        description: Fiscal week.
+        data_type: integer
+      - name: day_name
+        description: Name of the day.
+        data_type: varchar
+      - name: is_weekend
+        description: True on Saturday and Sunday.
+        data_type: boolean
+
+  - name: dim_channel
+    description: Sales channels.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: channel_code
+        description: Channel code.
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: channel_name
+        description: Channel name.
+        data_type: varchar

@@ -1,0 +1,61 @@
+version: 2
+
+sources:
+  - name: us_pos
+    description: >
+      Legacy store point-of-sale platform of the US region (synthetic). One row per ticket line,
+      amounts with US sales tax, timestamps in the store's local time, returns as negative lines.
+    schema: raw_us_pos
+    config:
+      loaded_at_field: loaded_at
+      freshness:
+        warn_after: {count: 36, period: hour}
+    tables:
+      - name: pos_sales_lines
+        description: >
+          Nightly export of ticket lines. A re-export can send the same line again in a later batch:
+          (ticket_no, line_no) is not unique, (ticket_no, line_no, export_batch_id) is.
+        columns:
+          - name: ticket_no
+            description: Ticket number, unique within the platform.
+          - name: line_no
+            description: Line number within the ticket.
+          - name: store_code
+            description: Local store code. Not every code exists in the group reference.
+          - name: sold_at_local
+            description: Wall-clock time of the sale in the store's own time zone.
+          - name: item_code
+            description: Local product code of the POS, to be mapped to a group SKU.
+          - name: qty
+            description: Quantity in sales units (a box of six plates is 1). Negative for a return.
+          - name: uom
+            description: Sales unit (EA piece, PR pair, BOX6 box of six).
+          - name: amount_incl_tax_usd
+            description: Line amount after discount, US sales tax included.
+          - name: tax_amount_usd
+            description: Sales tax part of the line amount.
+          - name: discount_amount_usd
+            description: Discount already deducted from the amount (informative).
+          - name: export_batch_id
+            description: Identifier of the export batch that delivered the row.
+          - name: loaded_at
+            description: When the row landed.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [ticket_no, line_no, export_batch_id]
+      - name: legacy_daily_sales
+        description: >
+          The daily datamart the local teams read today: every exported POS row summed per store
+          and day, tax included. The migration must reconcile with it (audit_migration_parity).
+        config:
+          freshness: null
+        columns:
+          - name: store_code
+            description: Local store code.
+          - name: business_date
+            description: Store-local day of the sales.
+          - name: sales_incl_tax_usd
+            description: Sum of the exported line amounts, tax included.
+          - name: line_count
+            description: Number of exported rows summed.

@@ -1,0 +1,72 @@
+version: 2
+
+sources:
+  - name: us_oms
+    description: >
+      E-commerce order-management system of the US region (synthetic). Orders, lines and returns
+      in three tables, amounts without tax, timestamps in UTC, an order-level discount on the header.
+    schema: raw_us_oms
+    config:
+      loaded_at_field: loaded_at
+      freshness:
+        warn_after: {count: 36, period: hour}
+    tables:
+      - name: oms_orders
+        description: One row per order (header grain).
+        columns:
+          - name: order_id
+            description: Order identifier.
+            data_tests: [unique, not_null]
+          - name: ordered_at_utc
+            description: When the order was placed, in UTC.
+          - name: merchandise_total_usd
+            description: Sum of the line amounts minus the order discount, without tax or shipping.
+          - name: order_discount_usd
+            description: Discount granted on the whole order, not split by line in the source.
+          - name: shipping_fee_usd
+            description: Shipping fee. Not merchandise, so not part of net sales.
+          - name: order_total_usd
+            description: Merchandise total plus shipping fee.
+      - name: oms_order_lines
+        description: One row per order line.
+        columns:
+          - name: order_id
+            description: Order of the line.
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('us_oms', 'oms_orders')
+                    field: order_id
+          - name: line_id
+            description: Line number within the order.
+          - name: sku_local
+            description: Local SKU of the web catalogue, to be mapped to a group SKU.
+          - name: quantity
+            description: Quantity in the web catalogue's sales units.
+          - name: unit_price_usd
+            description: Unit price without tax.
+          - name: line_amount_usd
+            description: Quantity times unit price, before the order-level discount.
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [order_id, line_id]
+      - name: oms_returns
+        description: >
+          One row per returned order line. A return lives in its own table and on its own date,
+          while the POS books it as a negative line of a ticket.
+        columns:
+          - name: return_id
+            description: Return identifier.
+            data_tests: [unique, not_null]
+          - name: order_id
+            description: Order the return refers to. Not always present in oms_orders.
+          - name: line_id
+            description: Order line the return refers to.
+          - name: returned_at_utc
+            description: When the return was registered, in UTC.
+          - name: quantity_returned
+            description: Quantity returned, positive.
+          - name: refund_amount_usd
+            description: Amount refunded without tax, positive.

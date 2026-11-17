@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: audit_quarantined_lines
+    description: >
+      Lines kept out of the core model, each with its reason. Nothing is dropped silently: a line
+      is either in fct_sales_lines or here.
+    columns:
+      - name: record_key
+        description: Readable key of the source record.
+        data_tests: [unique, not_null]
+      - name: source_system
+        description: Platform the line comes from (pos or oms).
+      - name: document_id
+        description: Ticket number (POS) or order identifier (OMS).
+      - name: source_line_id
+        description: Line number within the document, or return identifier for an OMS return.
+      - name: line_kind
+        description: sale or return.
+      - name: store_code
+        description: Local store code, as exported.
+      - name: business_date
+        description: The store-local day of the sale or of the return.
+      - name: local_product_code
+        description: Local product code, as exported.
+      - name: quantity_sales_units
+        description: Quantity in the platform's sales units.
+      - name: net_amount_usd
+        description: Amount without sales tax, as it would have entered the fact.
+      - name: tax_amount_usd
+        description: Sales tax of the line (POS only).
+      - name: quarantine_reason
+        description: Why the line is kept out of the core model.
+        data_tests: [not_null]
+
+  - name: audit_data_defects
+    description: >
+      Record-level defects detected in the source data, one row per defective record. Compared
+      with the manifest of the planted defects by a test: all found, none extra.
+    columns:
+      - name: defect_code
+        description: Kind of defect.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - DUPLICATE_LINE
+                  - HEADER_LINES_MISMATCH
+                  - ORPHAN_RETURN
+                  - UNKNOWN_STORE
+                  - SIGN_MISMATCH
+                  - UNMAPPED_PRODUCT
+                  - AMBIGUOUS_PRODUCT
+                  - MISSING_FX_RATE
+      - name: source_system
+        description: Platform the record comes from.
+      - name: record_key
+        description: Readable key of the defective record.
+        data_tests: [unique, not_null]
+
+  - name: audit_migration_parity
+    description: >
+      The legacy daily datamart of the stores against the core model, per store and day, in the
+      legacy definition (US dollars, tax included). Explained differences are listed; an
+      unexplained one fails the build.
+    columns:
+      - name: store_code
+        description: Local store code, as in the legacy datamart.
+      - name: business_date
+        description: Store-local day.
+      - name: legacy_sales_usd
+        description: Amount in the legacy datamart.
+      - name: core_sales_usd
+        description: Amount in the core model, restated with tax.
+      - name: explained_duplicates_usd
+        description: Amount of the re-exported lines the legacy datamart counted twice.
+      - name: explained_quarantine_usd
+        description: Amount of the lines quarantined by the new pipeline.
+      - name: unexplained_usd
+        description: What is left. Must be zero.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_code, business_date]

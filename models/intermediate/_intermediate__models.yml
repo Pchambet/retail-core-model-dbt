@@ -1,0 +1,142 @@
+version: 2
+
+models:
+  - name: int_oms__order_lines_allocated
+    description: >
+      OMS order lines with the order-level discount spread over them. Header grain to line grain:
+      the lines of an order add up to its header to the cent.
+    columns:
+      - name: allocated_discount_usd
+        description: Part of the order discount carried by the line.
+        data_tests: [not_null]
+      - name: net_amount_usd
+        description: Line amount after the allocated discount, without tax.
+      - name: is_header_mismatch
+        description: True when the order header does not add up to its lines.
+
+  - name: int_product_xref__resolved
+    description: One row per local product code, resolved to a group SKU when the mapping is unique.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [source_system, local_product_code]
+
+  - name: int_fx__daily_rates
+    description: The USD to EUR rate of each calendar day, the latest fixing carried forward.
+    columns:
+      - name: date_day
+        description: Calendar day.
+        data_tests: [unique, not_null]
+      - name: rate_date
+        description: Day of the fixing used for this calendar day.
+      - name: usd_to_eur
+        description: Euros for one US dollar.
+
+  - name: int_sales_lines__unioned
+    description: Sale and return lines of both platforms in one shape.
+    columns:
+      - name: record_key
+        description: Readable key of the source record, used to trace a line or a defect back.
+        data_tests: [unique, not_null]
+      - name: line_kind
+        description: sale or return.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [sale, return]
+      - name: business_date
+        description: The store-local day of the sale or of the return.
+        data_tests: [not_null]
+
+  - name: int_sales_lines__checked
+    description: >
+      Lines resolved against the group reference, each with the reason that quarantines it, if any.
+    columns:
+      - name: record_key
+        description: Readable key of the source record.
+        data_tests: [unique, not_null]
+      - name: quarantine_reason
+        description: Why the line stays out of the core model. Empty for an accepted line.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - HEADER_LINES_MISMATCH
+                  - ORPHAN_RETURN
+                  - UNKNOWN_STORE
+                  - SIGN_MISMATCH
+                  - UNMAPPED_PRODUCT
+                  - AMBIGUOUS_PRODUCT
+                  - MISSING_FX_RATE
+
+unit_tests:
+  - name: order_discount_is_spread_to_the_cent
+    description: >
+      A 100.00 discount over three equal lines gives 33.33 each and one cent left: the cent goes
+      to the first of the largest lines, and the three shares add up to 100.00.
+    model: int_oms__order_lines_allocated
+    given:
+      - input: ref('stg_oms__orders')
+        rows:
+          - {order_id: W1, order_discount_usd: 100.00, merchandise_total_usd: 800.00}
+      - input: ref('stg_oms__order_lines')
+        rows:
+          - {order_id: W1, line_id: 1, line_amount_usd: 300.00}
+          - {order_id: W1, line_id: 2, line_amount_usd: 300.00}
+          - {order_id: W1, line_id: 3, line_amount_usd: 300.00}
+    expect:
+      rows:
+        - {order_id: W1, line_id: 1, allocated_discount_usd: 33.34, net_amount_usd: 266.66, is_header_mismatch: false}
+        - {order_id: W1, line_id: 2, allocated_discount_usd: 33.33, net_amount_usd: 266.67, is_header_mismatch: false}
+        - {order_id: W1, line_id: 3, allocated_discount_usd: 33.33, net_amount_usd: 266.67, is_header_mismatch: false}
+
+  - name: web_order_belongs_to_the_local_business_day
+    description: >
+      An order placed at 03:30 UTC belongs to the previous day in New York. The offset is four
+      hours before the end of daylight saving time (1 November 2026) and five hours after it.
+    model: int_sales_lines__unioned
+    given:
+      - input: ref('stg_pos__sales_lines')
+        rows: []
+      - input: ref('stg_oms__returns')
+        rows: []
+      - input: ref('stg_reference__stores')
+        rows:
+          - {store_code: WEB, time_zone: America/New_York}
+      - input: ref('int_oms__order_lines_allocated')
+        rows:
+          - {order_id: W1, line_id: 1, ordered_at_utc: "2026-10-06 03:30:00"}
+          - {order_id: W2, line_id: 1, ordered_at_utc: "2026-11-02 04:30:00"}
+          - {order_id: W3, line_id: 1, ordered_at_utc: "2026-11-02 05:30:00"}
+    expect:
+      rows:
+        - {document_id: W1, occurred_at_local: "2026-10-05 23:30:00", business_date: "2026-10-05"}
+        - {document_id: W2, occurred_at_local: "2026-11-01 23:30:00", business_date: "2026-11-01"}
+        - {document_id: W3, occurred_at_local: "2026-11-02 00:30:00", business_date: "2026-11-02"}
+
+  - name: boxes_become_pieces_and_doubtful_codes_are_not_guessed
+    description: >
+      Two boxes of six plates are twelve pieces. A local code with no mapping, or with two, gets
+      no group SKU and a reason; it is never resolved by picking one.
+    model: int_sales_lines__checked
+    given:
+      - input: ref('int_sales_lines__unioned')
+        rows:
+          - {record_key: boxes, source_system: pos, store_code: NYC, local_product_code: P1, quantity_sales_units: 2, business_date: "2026-10-05"}
+          - {record_key: unmapped, source_system: pos, store_code: NYC, local_product_code: P2, quantity_sales_units: 1, business_date: "2026-10-05"}
+          - {record_key: ambiguous, source_system: pos, store_code: NYC, local_product_code: P3, quantity_sales_units: 1, business_date: "2026-10-05"}
+      - input: ref('stg_reference__stores')
+        rows:
+          - {store_code: NYC, group_store_id: US-001}
+      - input: ref('int_product_xref__resolved')
+        rows:
+          - {source_system: pos, local_product_code: P1, mapping_count: 1, group_sku: TW-0001, pieces_per_sales_unit: 6}
+          - {source_system: pos, local_product_code: P3, mapping_count: 2, group_sku: null, pieces_per_sales_unit: null}
+      - input: ref('int_fx__daily_rates')
+        rows:
+          - {date_day: "2026-10-05", usd_to_eur: 0.9166}
+    expect:
+      rows:
+        - {record_key: boxes, group_sku: TW-0001, quantity_pieces: 12, quarantine_reason: null}
+        - {record_key: unmapped, group_sku: null, quantity_pieces: null, quarantine_reason: UNMAPPED_PRODUCT}
+        - {record_key: ambiguous, group_sku: null, quantity_pieces: null, quarantine_reason: AMBIGUOUS_PRODUCT}

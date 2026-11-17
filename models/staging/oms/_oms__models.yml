@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_oms__orders
+    description: OMS order headers, renamed only.
+  - name: stg_oms__order_lines
+    description: OMS order lines, renamed only.
+  - name: stg_oms__returns
+    description: OMS returns, renamed only.
+    columns:
+      - name: refund_amount_usd
+        description: Amount refunded without tax, positive in the source.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0

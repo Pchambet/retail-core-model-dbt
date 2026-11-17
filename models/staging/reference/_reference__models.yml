@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: stg_reference__stores
+    description: Stores of the group reference.
+  - name: stg_reference__channels
+    description: Sales channels of the core model.
+  - name: stg_reference__group_products
+    description: Product catalogue of the group.
+  - name: stg_reference__product_xref
+    description: Cross-reference from local product codes to group SKUs, one row per mapping.
+  - name: stg_reference__fx_rates
+    description: Daily USD to EUR fixings.
+  - name: stg_reference__fiscal_calendar
+    description: Calendar of the group.

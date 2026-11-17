@@ -1,0 +1,99 @@
+version: 2
+
+models:
+  - name: mart_daily_store_sales
+    description: >
+      Daily sales per store, the datamart behind the analyst's dashboard. Grain: one row per
+      business day and store. Net sales are after returns and discounts, without sales tax.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: business_date
+        description: The store-local day.
+        data_type: date
+        data_tests: [not_null]
+      - name: group_store_id
+        description: Store of the group reference.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: store_name
+        description: Store name.
+        data_type: varchar
+      - name: channel_code
+        description: Sales channel.
+        data_type: varchar
+      - name: sale_documents
+        description: Number of tickets or orders with at least one sale line.
+        data_type: integer
+      - name: pieces_sold
+        description: Pieces sold, before returns.
+        data_type: integer
+      - name: pieces_returned
+        description: Pieces returned that day.
+        data_type: integer
+      - name: returns_eur
+        description: Amount returned that day in euros, positive.
+        data_type: decimal(18,2)
+      - name: net_sales_usd
+        description: Sales minus returns, in US dollars.
+        data_type: decimal(18,2)
+      - name: net_sales_eur
+        description: Sales minus returns, in euros.
+        data_type: decimal(18,2)
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [business_date, group_store_id]
+
+  - name: mart_monthly_metier_sales
+    description: >
+      Monthly sales per product family and channel. Grain: one row per fiscal month, métier and
+      channel.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: fiscal_year
+        description: Fiscal year.
+        data_type: integer
+        data_tests: [not_null]
+      - name: fiscal_month
+        description: Fiscal month.
+        data_type: integer
+        data_tests: [not_null]
+      - name: metier
+        description: Product family.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: channel_code
+        description: Sales channel.
+        data_type: varchar
+        data_tests: [not_null]
+      - name: net_pieces
+        description: Pieces sold minus pieces returned.
+        data_type: integer
+      - name: net_sales_eur
+        description: Sales minus returns, in euros.
+        data_type: decimal(18,2)
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [fiscal_year, fiscal_month, metier, channel_code]
+
+exposures:
+  - name: us_retail_daily_sales_dashboard
+    label: US retail daily sales (Power BI)
+    type: dashboard
+    maturity: low
+    description: >
+      The dashboard the data analyst of the pair builds on the datamarts: daily sales per store
+      and channel, returns, and sales per product family. Declared here so that the lineage shows
+      who reads what before a model changes. Fictitious: no dashboard exists behind this entry.
+    depends_on:
+      - ref('mart_daily_store_sales')
+      - ref('mart_monthly_metier_sales')
+      - ref('dim_store')
+      - ref('dim_date')
+    owner:
+      name: Data analyst of the migration pair

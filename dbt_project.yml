@@ -1,0 +1,89 @@
+name: retail_core
+version: "1.0.0"
+config-version: 2
+profile: retail_core
+require-dbt-version: [">=1.10.0", "<2.0.0"]
+
+model-paths: [models]
+seed-paths: [seeds]
+macro-paths: [macros]
+test-paths: [data_tests]
+clean-targets: [target, dbt_packages]
+
+vars:
+  # The e-commerce orders of the US are attached to this store of the group reference.
+  ecommerce_store_code: WEB
+
+models:
+  retail_core:
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: [staging]
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+      +tags: [intermediate]
+    marts:
+      +materialized: table
+      core:
+        +schema: core
+        +tags: [core]
+      sales:
+        +schema: sales
+        +tags: [datamart]
+      audit:
+        +schema: migration_audit
+        +tags: [audit]
+
+seeds:
+  retail_core:
+    raw_us_pos:
+      +schema: raw_us_pos
+      pos_sales_lines:
+        +column_types:
+          sold_at_local: timestamp
+          loaded_at: timestamp
+          amount_incl_tax_usd: decimal(18,2)
+          tax_amount_usd: decimal(18,2)
+          discount_amount_usd: decimal(18,2)
+      legacy_daily_sales:
+        +column_types:
+          business_date: date
+          sales_incl_tax_usd: decimal(18,2)
+    raw_us_oms:
+      +schema: raw_us_oms
+      +column_types:
+        loaded_at: timestamp
+      oms_orders:
+        +column_types:
+          ordered_at_utc: timestamp
+          merchandise_total_usd: decimal(18,2)
+          order_discount_usd: decimal(18,2)
+          shipping_fee_usd: decimal(18,2)
+          order_total_usd: decimal(18,2)
+      oms_order_lines:
+        +column_types:
+          unit_price_usd: decimal(18,2)
+          line_amount_usd: decimal(18,2)
+      oms_returns:
+        +column_types:
+          returned_at_utc: timestamp
+          refund_amount_usd: decimal(18,2)
+    raw_reference:
+      +schema: raw_reference
+      stores:
+        +column_types:
+          sales_tax_rate: decimal(8,5)
+      fx_rates:
+        +column_types:
+          rate_date: date
+          usd_to_eur: decimal(10,4)
+      fiscal_calendar:
+        +column_types:
+          date_day: date
+          is_weekend: boolean
+    ground_truth:
+      +schema: ground_truth
+    meta:
+      +schema: meta

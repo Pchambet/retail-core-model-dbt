@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_pos__sales_lines
+    description: >
+      POS ticket lines, one row per exported row (re-exports included). Amounts are restated
+      without sales tax, the definition of the core model; the tax is kept in its own column.
+    columns:
+      - name: business_date
+        description: The store-local day, taken from the local timestamp of the sale.
+        data_tests: [not_null]
+      - name: net_amount_usd
+        description: Line amount after discount, without sales tax. Negative for a return.
+        data_tests: [not_null]
+      - name: export_rank
+        description: 1 for the latest export of a (ticket_no, line_no), 2 and more for older copies.
+        data_tests: [not_null]
+  - name: stg_pos__legacy_daily_sales
+    description: The legacy daily datamart, unchanged.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_code, business_date]

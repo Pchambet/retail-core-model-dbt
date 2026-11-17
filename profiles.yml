@@ -1,0 +1,20 @@
+# Connection profiles, kept in the repository because they hold no secret:
+# the Snowflake target reads everything from environment variables.
+retail_core:
+  target: duckdb
+  outputs:
+    duckdb:
+      type: duckdb
+      path: target/retail_core.duckdb
+      schema: main
+      threads: 4
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'ACCOUNTADMIN') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'RETAIL_CORE') }}"
+      schema: main
+      threads: 4

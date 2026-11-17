@@ -1,0 +1,77 @@
+version: 2
+
+sources:
+  - name: reference
+    description: >
+      Reference data (synthetic): the group's stores, channels, products, exchange rates and fiscal
+      calendar, and the cross-reference from local product codes to group SKUs written for the
+      migration.
+    schema: raw_reference
+    tables:
+      - name: stores
+        description: Stores of the group reference, with the local code each platform uses.
+        columns:
+          - name: store_code
+            description: Local store code.
+            data_tests: [unique, not_null]
+          - name: group_store_id
+            description: Store identifier in the group's core model.
+            data_tests: [unique, not_null]
+          - name: timezone
+            description: IANA time zone of the store. The business day is the store's local day.
+            data_tests: [not_null]
+      - name: channels
+        description: Sales channels of the core model.
+        columns:
+          - name: channel_code
+            description: Channel code.
+            data_tests: [unique, not_null]
+      - name: group_products
+        description: Product catalogue of the group, keyed by group SKU.
+        columns:
+          - name: group_sku
+            description: Product identifier in the group's core model.
+            data_tests: [unique, not_null]
+      - name: product_xref
+        description: >
+          Cross-reference from a platform's local product code to the group SKU, with the number of
+          pieces in one local sales unit. A local code mapped twice is ambiguous and is not resolved.
+        columns:
+          - name: source_system
+            description: Platform the local code belongs to (pos or oms).
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [pos, oms]
+          - name: group_sku
+            description: Group SKU the local code stands for.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('reference', 'group_products')
+                    field: group_sku
+          - name: pieces_per_sales_unit
+            description: Pieces in one local sales unit (6 for a box of six plates).
+            data_tests:
+              - dbt_utils.accepted_range:
+                  arguments:
+                    min_value: 1
+      - name: fx_rates
+        description: Daily USD to EUR fixing. No fixing at the weekend.
+        columns:
+          - name: rate_date
+            description: Day of the fixing.
+            data_tests: [unique, not_null]
+          - name: usd_to_eur
+            description: Euros for one US dollar.
+            data_tests:
+              - dbt_utils.accepted_range:
+                  arguments:
+                    min_value: 0
+                    inclusive: false
+      - name: fiscal_calendar
+        description: Calendar of the group, one row per day.
+        columns:
+          - name: date_day
+            description: Calendar day.
+            data_tests: [unique, not_null]
