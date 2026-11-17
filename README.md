@@ -12,6 +12,8 @@ datamart the local teams read today.
 
 All data is synthetic, written by a seeded generator for a fictitious house, « Maison Démo ».
 
+**[Browse the models, the tests and the lineage](https://pchambet.github.io/retail-core-model-dbt/)** (the dbt documentation site, built from this repository).
+
 ## TL;DR
 
 - **Two sources, one model.** A legacy store POS (ticket lines, tax included, local time, returns as
@@ -250,7 +252,6 @@ Not verified:
 
 - **no model has run on Snowflake**;
 - **the GitLab pipeline has not run on GitLab** (no runner, no Pages);
-- the documentation site is built in CI but not published;
 - nothing here was measured at volume: a few thousand lines, where a real platform has millions.
 
 ## Limits
