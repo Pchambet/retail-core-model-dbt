@@ -211,13 +211,22 @@ create database retail_core;
 export SNOWFLAKE_ACCOUNT=<orgname-accountname>
 export SNOWFLAKE_USER=<user>
 export SNOWFLAKE_PRIVATE_KEY_PATH=<path to the private key registered on the user>
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE=<its passphrase, if the key is encrypted>
 uv sync --group snowflake
 uv run dbt seed --target snowflake
 uv run dbt build --target snowflake --selector transform
 ```
 
-Until someone has run these commands, expect small fixes: data type names in the contracts
-(`integer`, `varchar`) and the Snowflake branch of `utc_to_local` are the likeliest.
+Read against the dbt-snowflake 1.12.5 source and the Snowflake documentation, without an account:
+seeds get unquoted, hence upper-case, column names, which the unquoted SQL of the models resolves;
+a contract compares the type Snowflake gives a column with the type it gives
+`cast(null as <declared type>)`, so `integer` and `decimal(18,2)` both read as NUMBER and `varchar`
+as TEXT; the three-argument `convert_timezone` of `utc_to_local` takes and returns a
+TIMESTAMP_NTZ, which `timestamp` is under the default `TIMESTAMP_TYPE_MAPPING`. Still open until
+the first run: the time zone read from a column in `convert_timezone` (the reference shows
+literals), and the order discount computed in exact decimals on Snowflake but in floating point on
+DuckDB, which could move a cent between two lines of an order on an exact half-cent (none in this
+data; the lines still add up to the header).
 
 ## What was verified and what was not
 

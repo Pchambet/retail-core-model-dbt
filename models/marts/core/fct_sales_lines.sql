@@ -32,8 +32,9 @@ with loaded as (
         from {{ this }}
     {% else %}
         select
-            cast(null as varchar) as source_record_key,
-            cast(null as timestamp) as loaded_at
+            record_key as source_record_key,
+            loaded_at
+        from {{ ref('int_sales_lines__checked') }}
         where false
     {% endif %}
 ),
