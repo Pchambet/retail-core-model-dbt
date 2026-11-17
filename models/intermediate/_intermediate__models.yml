@@ -90,6 +90,30 @@ unit_tests:
         - {order_id: W1, line_id: 2, allocated_discount_usd: 33.33, net_amount_usd: 266.67, is_header_mismatch: false}
         - {order_id: W1, line_id: 3, allocated_discount_usd: 33.33, net_amount_usd: 266.67, is_header_mismatch: false}
 
+  - name: weekend_takes_fridays_fixing_and_no_rate_is_guessed
+    description: >
+      Fixings on Friday 9 and Monday 12 October: Saturday and Sunday take Friday's, Monday its own.
+      Thursday 8, before the first fixing, gets no row, so its lines are quarantined.
+    model: int_fx__daily_rates
+    given:
+      - input: ref('stg_reference__fiscal_calendar')
+        rows:
+          - {date_day: "2026-10-08"}
+          - {date_day: "2026-10-09"}
+          - {date_day: "2026-10-10"}
+          - {date_day: "2026-10-11"}
+          - {date_day: "2026-10-12"}
+      - input: ref('stg_reference__fx_rates')
+        rows:
+          - {rate_date: "2026-10-09", usd_to_eur: 0.9100}
+          - {rate_date: "2026-10-12", usd_to_eur: 0.9200}
+    expect:
+      rows:
+        - {date_day: "2026-10-09", rate_date: "2026-10-09", usd_to_eur: 0.9100}
+        - {date_day: "2026-10-10", rate_date: "2026-10-09", usd_to_eur: 0.9100}
+        - {date_day: "2026-10-11", rate_date: "2026-10-09", usd_to_eur: 0.9100}
+        - {date_day: "2026-10-12", rate_date: "2026-10-12", usd_to_eur: 0.9200}
+
   - name: web_order_belongs_to_the_local_business_day
     description: >
       An order placed at 03:30 UTC belongs to the previous day in New York. The offset is four

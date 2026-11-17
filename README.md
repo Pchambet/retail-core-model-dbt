@@ -25,7 +25,7 @@ All data is synthetic, written by a seeded generator for a fictitious house, « 
   anywhere between the exports and the core model.
 - **The migration reconciles with the legacy datamart to the cent**, per store and day, over 171
   store days: `legacy = core + duplicates dropped + lines quarantined`, unexplained difference 0.00.
-- **101 data tests and 4 unit tests** on 26 models, contracts on the fact, the dimensions and the
+- **101 data tests and 6 unit tests** on 26 models, contracts on the fact, the dimensions and the
   datamarts, an incremental fact, SQLFluff, and a CI that builds everything twice on every push
   (the second run takes the incremental path). Seven protections were broken on purpose; the
   build failed each time.
@@ -86,8 +86,8 @@ and the test that fails if the rule is removed. The column-by-column version is 
 | Discount grain | On the line | On the order header (69 orders) | Spread over the lines pro rata, the rounding remainder on the largest line | unit test `order_discount_is_spread_to_the_cent`, `assert_order_discount_fully_allocated` |
 | Unit of quantity | Sales units: a box of six plates is 1 | Mostly pieces | Pieces, through the cross-reference (`pieces_per_sales_unit`). 354 loaded lines change quantity | unit test `boxes_become_pieces_and_doubtful_codes_are_not_guessed` |
 | Product code | Local POS code | Local web SKU | Group SKU through a cross-reference; a code mapped twice is not guessed | same unit test, `relationships` to `dim_product`, planted-defects test |
-| Currency | USD | USD | USD kept, EUR added at the latest fixing on or before the business day (1,202 lines use an earlier fixing, weekends) | `not_null` on the rate, `assert_datamarts_reconcile_with_fact` |
-| Re-exports | The same line can arrive twice | n/a | The latest export wins; older copies are listed as defects | `unique` on `record_key`, parity test |
+| Currency | USD | USD | USD kept, EUR added at the latest fixing on or before the business day (1,202 lines use an earlier fixing, weekends) | unit test `weekend_takes_fridays_fixing_and_no_rate_is_guessed`, `assert_datamarts_reconcile_with_fact` |
+| Re-exports | The same line can arrive twice | n/a | The latest export wins; older copies are listed as defects | unit test `latest_export_of_a_pos_line_wins`, `unique` on `record_key`, parity test |
 | Shipping fee | n/a | On the order header | Not merchandise: left out of net sales | header check in `int_oms__order_lines_allocated` |
 
 ## Results
@@ -158,7 +158,7 @@ Each change was made alone, the warehouse was rebuilt in full, and the change wa
 - **Sources** are declared with descriptions and freshness on `loaded_at`. The sample data is
   static, so `dbt source freshness` warns by design; it is not a CI gate here.
 - **Tests.** 95 generic data tests (keys, relationships, accepted values, ranges), 6 singular tests
-  that state an invariant of the migration in plain SQL, and 4 unit tests on the rules that are
+  that state an invariant of the migration in plain SQL, and 6 unit tests on the rules that are
   easiest to get wrong.
 - **Contracts** on the 7 models other teams read (fact, dimensions, datamarts): column names and
   types are part of the model, and a change that breaks them fails the build.
@@ -190,7 +190,7 @@ Requires [uv](https://docs.astral.sh/uv/). On DuckDB, nothing else:
 ```bash
 uv sync && uv run dbt deps
 uv run dbt seed                                   # land the synthetic exports
-uv run dbt build --selector transform             # 26 models, 101 data tests, 4 unit tests
+uv run dbt build --selector transform             # 26 models, 101 data tests, 6 unit tests
 ```
 
 Then `uv run dbt docs generate && uv run dbt docs serve` for the documentation and the lineage.

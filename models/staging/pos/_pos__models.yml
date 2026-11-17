@@ -21,3 +21,19 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [store_code, business_date]
+
+unit_tests:
+  - name: latest_export_of_a_pos_line_wins
+    description: >
+      A ticket line exported on 20 October, then again, corrected, on 21 October: the later export
+      ranks first, the one the core model keeps. Amounts are restated without tax.
+    model: stg_pos__sales_lines
+    given:
+      - input: source('us_pos', 'pos_sales_lines')
+        rows:
+          - {ticket_no: NYC-1, line_no: 1, amount_incl_tax_usd: 108.88, tax_amount_usd: 8.88, export_batch_id: B20261019, loaded_at: "2026-10-20 03:15:00"}
+          - {ticket_no: NYC-1, line_no: 1, amount_incl_tax_usd: 97.99, tax_amount_usd: 7.99, export_batch_id: B20261020R, loaded_at: "2026-10-21 03:15:00"}
+    expect:
+      rows:
+        - {export_batch_id: B20261019, net_amount_usd: 100.00, export_rank: 2}
+        - {export_batch_id: B20261020R, net_amount_usd: 90.00, export_rank: 1}
