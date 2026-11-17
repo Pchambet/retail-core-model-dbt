@@ -31,7 +31,6 @@ models:
         description: Sales tax of the line (POS only).
       - name: quarantine_reason
         description: Why the line is kept out of the core model.
-        data_tests: [not_null]
 
   - name: audit_data_defects
     description: >

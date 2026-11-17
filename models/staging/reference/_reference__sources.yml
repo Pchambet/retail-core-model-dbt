@@ -35,7 +35,13 @@ sources:
       - name: product_xref
         description: >
           Cross-reference from a platform's local product code to the group SKU, with the number of
-          pieces in one local sales unit. A local code mapped twice is ambiguous and is not resolved.
+          pieces in one local sales unit. A local code mapped to two group SKUs is ambiguous and is
+          not resolved; the same mapping written twice is an error of the reference (the model would
+          otherwise keep one of its two pack sizes without a word).
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [source_system, local_code, group_sku]
         columns:
           - name: source_system
             description: Platform the local code belongs to (pos or oms).

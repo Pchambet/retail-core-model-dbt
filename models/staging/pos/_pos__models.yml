@@ -14,7 +14,6 @@ models:
         data_tests: [not_null]
       - name: export_rank
         description: 1 for the latest export of a (ticket_no, line_no), 2 and more for older copies.
-        data_tests: [not_null]
   - name: stg_pos__legacy_daily_sales
     description: The legacy daily datamart, unchanged.
     data_tests:

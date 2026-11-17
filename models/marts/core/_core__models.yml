@@ -20,7 +20,7 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: source_record_key
         description: Readable key of the source record, to trace the line back to its platform.
         data_type: varchar
@@ -51,7 +51,6 @@ models:
         constraints:
           - type: not_null
         data_tests:
-          - not_null
           - relationships:
               arguments:
                 to: ref('dim_date')
@@ -131,7 +130,7 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: store_code
         description: Local store code.
         data_type: varchar
@@ -172,7 +171,7 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: product_name
         description: Product name.
         data_type: varchar
@@ -192,7 +191,7 @@ models:
         data_type: date
         constraints:
           - type: not_null
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: fiscal_year
         description: Fiscal year.
         data_type: integer
@@ -220,7 +219,7 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
-        data_tests: [unique, not_null]
+        data_tests: [unique]
       - name: channel_name
         description: Channel name.
         data_type: varchar
