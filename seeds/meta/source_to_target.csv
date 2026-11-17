@@ -1,5 +1,5 @@
 target_column,pos_source,oms_source,rule
-sales_line_id,"ticket_no, line_no","order_id, line_id or return_id","Hash of source system, document, line and kind (sale or return)"
+sales_line_id,"ticket_no, line_no","order_id, line_id or return_id","Hash of the source record key, so that a line exported again keeps its key"
 source_record_key,"ticket_no, line_no","order_id, line_id or return_id","Readable key kept for traceability: pos|ticket|line, oms|order|line, oms|return"
 source_system,constant pos,constant oms,Platform of origin
 document_id,ticket_no,order_id,"A return of the OMS keeps the order it refers to"

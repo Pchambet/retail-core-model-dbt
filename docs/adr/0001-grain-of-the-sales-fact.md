@@ -3,8 +3,9 @@
 ## Decision
 
 `fct_sales_lines` holds **one row per sale or return line** of a store ticket or of a web order.
-Its key, `sales_line_id`, is a hash of the source system, the document, the line and the kind
-(sale or return). The fact is incremental on `loaded_at`, with `delete+insert` on that key.
+Its key, `sales_line_id`, is a hash of the source record key (`pos|ticket|line`,
+`oms|order|line`, `oms|return`). The fact is incremental on `loaded_at`, with `delete+insert` on
+that key.
 
 ## Why
 
@@ -16,8 +17,13 @@ Its key, `sales_line_id`, is a hash of the source system, the document, the line
   return against its sale would rewrite a day that was already reported.
 - The order-level discount of the OMS is brought down to the line (pro rata, remainder on the
   largest line) so that no measure of the fact lives at another grain than the row.
-- The key is the line itself, not a load sequence: when a platform exports a line again, the new
-  version replaces the old one. `delete+insert` exists on both DuckDB and Snowflake.
+- The key is the source record itself, not a load sequence and not an attribute of the line: when
+  a platform exports a line again, the new version replaces the old one, even when it turns a sale
+  into a return. `delete+insert` exists on both DuckDB and Snowflake.
+- Quarantine works both ways on the incremental path. A nightly run reads what landed since the
+  last load, plus every accepted line the fact does not hold yet (a line released from quarantine
+  once its reference is fixed, a line that landed with an older load time); a post-hook deletes a
+  loaded line that a later export sends to quarantine.
 
 ## Set aside
 
@@ -29,6 +35,12 @@ Its key, `sales_line_id`, is a hash of the source system, the document, the line
 
 ## Consequence
 
-The incremental filter trusts `loaded_at`. A change of logic in an upstream model does not reach
-rows already loaded: it needs `dbt build --full-refresh`, which CI gets for free by starting from an
-empty warehouse.
+A line already loaded is only rewritten when it is exported again. A change of logic upstream, or a
+correction of reference data that changes the values of loaded lines (a pack size, a rate, the
+channel of a store), does not reach them: it needs `dbt build --full-refresh`, which CI gets for
+free by starting from an empty warehouse.
+
+Checked by hand on a simulated second night (a line released from quarantine, a loaded line sent
+to quarantine by a re-export, a re-export that turns a sale into a return, two late lines): the
+incremental build is green and its fact equals the one of a full refresh. This scenario is not in
+CI; the unit test `incremental_run_reads_new_late_and_released_lines` is.

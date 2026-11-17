@@ -5,14 +5,18 @@ models:
     description: >
       Sales of the US region in the group's core retail model. **Grain: one row per sale or return
       line of a store ticket or of a web order**, after de-duplication of re-exported lines.
-      Amounts are without sales tax, in US dollars and in euros at the rate of the business day.
-      A return is its own row with negative quantity and amount, on the day it happened.
+      Amounts are without sales tax, in US dollars and in euros at the latest fixing on or before
+      the business day. A return is its own row with negative quantity and amount, on the day it
+      happened. Incremental: a line released from quarantine is loaded on the next run, a loaded
+      line that a later export sends to quarantine is removed.
     config:
       contract:
         enforced: true
     columns:
       - name: sales_line_id
-        description: Surrogate key of the line (source system, document, line, kind).
+        description: >
+          Surrogate key of the line, a hash of the source record key: the same line exported again
+          keeps its key, even when the new version turns a sale into a return.
         data_type: varchar
         constraints:
           - type: not_null
@@ -220,3 +224,38 @@ models:
       - name: channel_name
         description: Channel name.
         data_type: varchar
+
+unit_tests:
+  - name: incremental_run_reads_new_late_and_released_lines
+    description: >
+      The fact was last loaded at 2026-11-15 03:15. Tonight's run reads what landed since, that
+      last load included (a line landing in the same second is not missed), a line released from
+      quarantine and a line that landed with an older load time. It skips a line already loaded
+      and a line still in quarantine.
+    model: fct_sales_lines
+    overrides:
+      macros:
+        is_incremental: true
+    given:
+      # In SQL, so that the fixture carries its own types: on a first build the fact does not
+      # exist yet, and dbt could not read them from it.
+      - input: this
+        format: sql
+        rows: |
+          select 'loaded_before' as source_record_key, cast('2026-11-14 03:15:00' as timestamp) as loaded_at
+          union all
+          select 'last_load' as source_record_key, cast('2026-11-15 03:15:00' as timestamp) as loaded_at
+      - input: ref('int_sales_lines__checked')
+        rows:
+          - {record_key: loaded_before, loaded_at: "2026-11-14 03:15:00"}
+          - {record_key: last_load, loaded_at: "2026-11-15 03:15:00"}
+          - {record_key: landed_tonight, loaded_at: "2026-11-16 03:15:00"}
+          - {record_key: released, loaded_at: "2026-11-07 03:15:00"}
+          - {record_key: landed_late, loaded_at: "2026-11-15 01:00:00"}
+          - {record_key: still_quarantined, loaded_at: "2026-11-16 03:15:00", quarantine_reason: UNMAPPED_PRODUCT}
+    expect:
+      rows:
+        - {source_record_key: last_load}
+        - {source_record_key: landed_tonight}
+        - {source_record_key: released}
+        - {source_record_key: landed_late}

@@ -24,10 +24,10 @@ All data is synthetic, written by a seeded generator for a fictitious house, « 
   reason: 3,509 lines checked, 3,489 loaded, 20 quarantined, and a test that fails if one is lost.
 - **The migration reconciles with the legacy datamart to the cent**, per store and day, over 171
   store days: `legacy = core + duplicates dropped + lines quarantined`, unexplained difference 0.00.
-- **101 data tests and 3 unit tests** on 26 models, contracts on the fact, the dimensions and the
-  datamarts, an incremental
-  fact, SQLFluff, and a CI that builds everything twice on every push (the second run takes the
-  incremental path). Seven protections were broken on purpose; the build failed each time.
+- **101 data tests and 4 unit tests** on 26 models, contracts on the fact, the dimensions and the
+  datamarts, an incremental fact, SQLFluff, and a CI that builds everything twice on every push
+  (the second run takes the incremental path). Seven protections were broken on purpose; the
+  build failed each time.
 - **Runs on DuckDB** locally and in CI. A Snowflake target is written and parses, but **has not
   been run on Snowflake yet** (see [What was verified](#what-was-verified-and-what-was-not)).
 
@@ -157,13 +157,15 @@ Each change was made alone, the warehouse was rebuilt in full, and the change wa
 - **Sources** are declared with descriptions and freshness on `loaded_at`. The sample data is
   static, so `dbt source freshness` warns by design; it is not a CI gate here.
 - **Tests.** 95 generic data tests (keys, relationships, accepted values, ranges), 6 singular tests
-  that state an invariant of the migration in plain SQL, and 3 unit tests on the rules that are
+  that state an invariant of the migration in plain SQL, and 4 unit tests on the rules that are
   easiest to get wrong.
 - **Contracts** on the 7 models other teams read (fact, dimensions, datamarts): column names and
   types are part of the model, and a change that breaks them fails the build.
 - **Incremental fact.** `fct_sales_lines` loads on `loaded_at` with `delete+insert` on
-  `sales_line_id`: a nightly run reads only what landed, and a line exported again replaces its
-  earlier version instead of doubling ([ADR 0001](docs/adr/0001-grain-of-the-sales-fact.md)).
+  `sales_line_id`, a hash of the source record: a line exported again replaces its earlier version
+  instead of doubling, even when it turns a sale into a return. A nightly run also loads a line
+  released from quarantine once its reference is fixed, and a post-hook removes a loaded line that a
+  later export sends to quarantine ([ADR 0001](docs/adr/0001-grain-of-the-sales-fact.md)).
 - **Macros**, three, each with a reason: [`utc_to_local`](macros/utc_to_local.sql) (the one
   expression DuckDB and Snowflake spell differently, dispatched per adapter),
   [`as_money`](macros/as_money.sql) (one money type, required by the contracts) and
@@ -187,7 +189,7 @@ Requires [uv](https://docs.astral.sh/uv/). On DuckDB, nothing else:
 ```bash
 uv sync && uv run dbt deps
 uv run dbt seed                                   # land the synthetic exports
-uv run dbt build --selector transform     # 26 models, 101 data tests, 3 unit tests
+uv run dbt build --selector transform             # 26 models, 101 data tests, 4 unit tests
 ```
 
 Then `uv run dbt docs generate && uv run dbt docs serve` for the documentation and the lineage.
@@ -225,6 +227,9 @@ Verified, by a command whose result is in CI or was read on the machine:
 - the legacy datamart and the core model reconcile to the cent;
 - the seeds and the mapping page are exactly what their scripts write;
 - the seven deliberate breaks above each fail the build;
+- on a simulated second night (a line released from quarantine, a loaded line sent to quarantine by
+  a re-export, a re-export that turns a sale into a return, two late lines), the incremental build
+  is green and its fact equals the one of a full refresh (by hand, not in CI);
 - the project parses with the Snowflake adapter (`dbt parse --target snowflake`);
 - the script of the GitLab pipeline runs green in its container image
   (`ghcr.io/astral-sh/uv:python3.13-bookworm-slim`), on a laptop.
@@ -241,7 +246,8 @@ Not verified:
 - Seeds stand in for ingestion: there is no extract-and-load tool, no change data capture, no
   orchestration. `loaded_at` and the export batches imitate what one would leave behind.
 - Two sources and one region. The core model is a plausible one, not a real group's.
-- The incremental load trusts `loaded_at`; a change of logic upstream needs `--full-refresh`.
+- A loaded line is only rewritten when it is exported again: a change of logic upstream, or a
+  reference correction that changes loaded values (a pack size, a rate), needs `--full-refresh`.
 - Dimensions are loaded as they are: no history (slowly changing dimensions) is kept.
 - An order with one bad line is quarantined as a whole or line by line depending on the defect;
   a real migration would agree these rules with the business teams first.

@@ -3,39 +3,53 @@
         materialized='incremental',
         incremental_strategy='delete+insert',
         unique_key='sales_line_id',
-        on_schema_change='fail'
+        on_schema_change='fail',
+        post_hook="
+            delete from {{ this }}
+            where source_record_key in (
+                select record_key from {{ ref('int_sales_lines__checked') }}
+                where quarantine_reason is not null
+            )"
     )
 }}
 
 {#
-    Grain: one row per sale or return line of a ticket or an order (docs/adr/0001).
-    Incremental on the load time: a nightly run only reads what landed since the last one. The key
-    is the line itself, so a line exported again replaces its earlier version instead of doubling.
-    A first or full run reads everything.
+    Grain: one row per sale or return line of a ticket or an order (docs/adr/0001). The key is the
+    source record, so a line exported again replaces its earlier version instead of doubling.
+
+    Incremental. A nightly run reads the accepted lines that landed since the last load (new lines
+    and new versions of loaded ones), plus every accepted line the fact does not hold yet: a line
+    released from quarantine once its reference is fixed, or one that landed with an older load
+    time. The post-hook removes a loaded line that a later export sends to quarantine. On a first
+    or full run, `loaded` is empty and every accepted line is read.
 #}
 
-{% set last_load %}
+with loaded as (
     {% if is_incremental() %}
-        (select max(loaded.loaded_at) from {{ this }} as loaded)
+        select
+            source_record_key,
+            loaded_at
+        from {{ this }}
     {% else %}
-        cast('1900-01-01' as timestamp)
+        select
+            cast(null as varchar) as source_record_key,
+            cast(null as timestamp) as loaded_at
+        where false
     {% endif %}
-{% endset %}
+),
 
-with sales_lines as (
+sales_lines as (
     select * from {{ ref('int_sales_lines__checked') }}
     where
         quarantine_reason is null
-        and loaded_at >= {{ last_load | trim }}
+        and (
+            loaded_at >= (select max(loaded.loaded_at) from loaded)
+            or record_key not in (select loaded.source_record_key from loaded)
+        )
 )
 
 select
-    {{ dbt_utils.generate_surrogate_key([
-        'sales_lines.source_system',
-        'sales_lines.document_id',
-        'sales_lines.source_line_id',
-        'sales_lines.line_kind',
-    ]) }} as sales_line_id,
+    {{ dbt_utils.generate_surrogate_key(['sales_lines.record_key']) }} as sales_line_id,
     sales_lines.record_key as source_record_key,
     sales_lines.source_system,
     sales_lines.document_id,
