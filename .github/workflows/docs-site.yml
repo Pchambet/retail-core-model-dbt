@@ -1,0 +1,34 @@
+# Publishes the dbt documentation site (models, tests, lineage) to GitHub Pages.
+# Manual on purpose: it needs Pages enabled with "GitHub Actions" as its source.
+name: docs-site
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run dbt deps
+      - run: uv run dbt seed
+      - run: uv run dbt build --selector transform
+      - run: uv run dbt docs generate
+      - run: mkdir site && cp target/index.html target/manifest.json target/catalog.json site/
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5

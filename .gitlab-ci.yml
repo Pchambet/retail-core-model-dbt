@@ -1,0 +1,53 @@
+# The same pipeline as .github/workflows/ci.yml, for GitLab CI/CD.
+image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+variables:
+  UV_CACHE_DIR: .uv-cache
+  UV_LINK_MODE: copy
+
+cache:
+  key:
+    files: [uv.lock]
+  paths: [.uv-cache]
+
+stages: [lint, build, docs]
+
+default:
+  before_script:
+    - uv sync --locked
+    - uv run dbt deps
+
+lint:
+  stage: lint
+  script:
+    - uv run ruff check .
+    - uv run ruff format --check .
+    - uv run pytest -q
+    - uv run sqlfluff lint models data_tests
+
+build:
+  stage: build
+  script:
+    - uv run dbt seed
+    - uv run dbt build --selector transform
+    # A second run takes the incremental path of the fact.
+    - uv run dbt build --selector transform
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - target/retail_core.duckdb
+      - target/manifest.json
+      - target/run_results.json
+
+pages:
+  stage: docs
+  needs: [build]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - uv run dbt docs generate
+    - mkdir public
+    - cp target/index.html target/manifest.json target/catalog.json public/
+  artifacts:
+    paths: [public]

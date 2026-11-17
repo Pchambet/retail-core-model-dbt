@@ -3,8 +3,9 @@ on:
   push:
     branches: [main]
   pull_request:
+
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -12,6 +13,27 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pytest -q
+
+      - name: Python checks (generator and mapping page are reproducible)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run pytest -q
+
+      - run: uv run dbt deps
+      - name: Lint SQL
+        run: uv run sqlfluff lint models data_tests
+
+      - name: Land the synthetic data
+        run: uv run dbt seed
+      - name: Build and test (first load)
+        run: uv run dbt build --selector transform
+      - name: Build and test again (incremental path of the fact)
+        run: uv run dbt build --selector transform
+
+      - name: Generate the documentation site
+        run: uv run dbt docs generate --static
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dbt-docs
+          path: target/static_index.html
