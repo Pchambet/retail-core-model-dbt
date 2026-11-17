@@ -11,15 +11,22 @@
     Grain: one row per sale or return line of a ticket or an order (docs/adr/0001).
     Incremental on the load time: a nightly run only reads what landed since the last one. The key
     is the line itself, so a line exported again replaces its earlier version instead of doubling.
+    A first or full run reads everything.
 #}
+
+{% set last_load %}
+    {% if is_incremental() %}
+        (select max(loaded.loaded_at) from {{ this }} as loaded)
+    {% else %}
+        cast('1900-01-01' as timestamp)
+    {% endif %}
+{% endset %}
 
 with sales_lines as (
     select * from {{ ref('int_sales_lines__checked') }}
     where
         quarantine_reason is null
-        {% if is_incremental() %}
-            and loaded_at >= (select max(loaded.loaded_at) from {{ this }} as loaded)
-        {% endif %}
+        and loaded_at >= {{ last_load | trim }}
 )
 
 select
