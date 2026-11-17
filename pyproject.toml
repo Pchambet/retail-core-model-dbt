@@ -1,0 +1,30 @@
+[project]
+name = "retail-core-model-dbt"
+version = "0.1.0"
+authors = [
+    { name = "Pierre_Chambet", email = "pierrechambet@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+retail-core-model-dbt = "retail_core_model_dbt:main"
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+# ruff defaults (version locked in uv.lock) + imports, bugbear, pyupgrade, simplify
+[tool.ruff.lint]
+extend-select = ["I", "B", "UP", "SIM"]
+
+# Let Pyright / the editor find the project's .venv (else "import pytest could not be resolved")
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
