@@ -21,7 +21,8 @@ All data is synthetic, written by a seeded generator for a fictitious house, « 
 - **24 record-level defects of 8 kinds are planted** in the source data, with their manifest. A data
   test requires the pipeline to flag **all 24 with the right code, and nothing else**.
 - **Nothing is dropped silently.** A line is either in the fact or in a quarantine table with its
-  reason: 3,509 lines checked, 3,489 loaded, 20 quarantined, and a test that fails if one is lost.
+  reason: 3,509 lines exported, 3,489 loaded, 20 quarantined, and a test that fails if one is lost
+  anywhere between the exports and the core model.
 - **The migration reconciles with the legacy datamart to the cent**, per store and day, over 171
   store days: `legacy = core + duplicates dropped + lines quarantined`, unexplained difference 0.00.
 - **101 data tests and 4 unit tests** on 26 models, contracts on the fact, the dimensions and the

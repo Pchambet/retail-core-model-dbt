@@ -1,8 +1,17 @@
--- No line is lost between the platforms and the core model: every checked line is either in the
--- fact or in the quarantine, never in both and never in neither.
+-- No line is lost between the platforms and the core model: every line a platform exported (a POS
+-- ticket line, counted once however often it was re-exported, an OMS order line, an OMS return) is
+-- either in the fact or in the quarantine, never in both and never in neither. The keys are
+-- rebuilt from staging on purpose, so that a line dropped by the union itself is seen too.
 
-with checked as (
-    select record_key from {{ ref('int_sales_lines__checked') }}
+with exported as (
+    select distinct 'pos|' || ticket_no || '|' || cast(line_no as varchar) as record_key
+    from {{ ref('stg_pos__sales_lines') }}
+    union all
+    select 'oms|' || order_id || '|' || cast(line_id as varchar) as record_key
+    from {{ ref('stg_oms__order_lines') }}
+    union all
+    select 'oms|' || return_id as record_key
+    from {{ ref('stg_oms__returns') }}
 ),
 
 landed as (
@@ -20,11 +29,11 @@ landed_counts as (
 )
 
 select
-    coalesce(checked.record_key, landed_counts.record_key) as record_key,
+    coalesce(exported.record_key, landed_counts.record_key) as record_key,
     landed_counts.landings
-from checked
-full outer join landed_counts on checked.record_key = landed_counts.record_key
+from exported
+full outer join landed_counts on exported.record_key = landed_counts.record_key
 where
-    checked.record_key is null
+    exported.record_key is null
     or landed_counts.record_key is null
     or landed_counts.landings != 1
