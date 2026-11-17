@@ -1,0 +1,33 @@
+group_sku,product_name,metier
+LG-0001,Small leather wallet,Leather goods
+LG-0002,Card holder,Leather goods
+LG-0003,Leather belt,Leather goods
+LG-0004,Leather tote,Leather goods
+LG-0005,Crossbody bag,Leather goods
+LG-0006,Key ring,Leather goods
+LG-0007,Travel pouch,Leather goods
+LG-0008,Notebook cover,Leather goods
+SK-0001,Silk scarf 90,Silk
+SK-0002,Silk ribbon scarf,Silk
+SK-0003,Silk tie,Silk
+SK-0004,Cashmere and silk shawl,Silk
+SK-0005,Pocket square,Silk
+FR-0001,Eau de toilette 100 ml,Fragrance
+FR-0002,Eau de parfum 50 ml,Fragrance
+FR-0003,Scented candle,Fragrance
+TW-0001,Porcelain dinner plate,Tableware
+TW-0002,Porcelain dessert plate,Tableware
+TW-0003,Tea cup and saucer,Tableware
+TW-0004,Porcelain mug,Tableware
+TW-0005,Crystal tumbler,Tableware
+JW-0001,Enamel bracelet,Jewelry
+JW-0002,Silver ring,Jewelry
+JW-0003,Leather bracelet,Jewelry
+JW-0004,Pendant necklace,Jewelry
+SH-0001,Leather sandals,Shoes
+SH-0002,Leather sneakers,Shoes
+SH-0003,Leather loafers,Shoes
+HM-0001,Wool blanket,Home
+HM-0002,Cushion,Home
+HM-0003,Leather tray,Home
+HM-0004,Playing cards,Home

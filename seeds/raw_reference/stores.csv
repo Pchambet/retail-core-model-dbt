@@ -1,0 +1,6 @@
+store_code,group_store_id,store_name,city,state,timezone,channel_code,sales_tax_rate
+NYC,US-001,New York flagship,New York,NY,America/New_York,STORE,0.08875
+LAX,US-002,Los Angeles,Los Angeles,CA,America/Los_Angeles,STORE,0.09500
+CHI,US-003,Chicago,Chicago,IL,America/Chicago,STORE,0.10250
+MIA,US-004,Miami,Miami,FL,America/New_York,STORE,0.07000
+WEB,US-900,US e-commerce,New York,NY,America/New_York,ECOM,

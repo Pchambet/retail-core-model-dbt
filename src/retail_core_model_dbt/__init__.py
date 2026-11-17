@@ -1,3 +1,1 @@
-def main(argv: list[str] | None = None) -> int:
-    """Command-line entry point; returns the process exit code."""
-    return 0
+"""Synthetic data and documentation helpers of the retail-core-model-dbt work sample."""

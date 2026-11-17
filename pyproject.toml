@@ -1,14 +1,21 @@
 [project]
 name = "retail-core-model-dbt"
 version = "0.1.0"
+description = "dbt work sample: two local US retail platforms migrated to a group core retail model, on synthetic data"
+readme = "README.md"
+license = "MIT"
 authors = [
-    { name = "Pierre_Chambet", email = "pierrechambet@gmail.com" }
+    { name = "Pierre Chambet" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "dbt-core>=1.12.7",
+    "dbt-duckdb>=1.11.1",
+]
 
 [project.scripts]
-retail-core-model-dbt = "retail_core_model_dbt:main"
+generate-data = "retail_core_model_dbt.generate:main"
+render-mapping = "retail_core_model_dbt.mapping_doc:main"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
@@ -18,6 +25,11 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.5",
+    "sqlfluff>=4.5.0",
+    "sqlfluff-templater-dbt>=4.5.0",
+]
+snowflake = [
+    "dbt-snowflake>=1.12.5",
 ]
 
 # ruff defaults (version locked in uv.lock) + imports, bugbear, pyupgrade, simplify
