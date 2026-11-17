@@ -150,13 +150,14 @@ Each change was made alone, the warehouse was rebuilt in full, and the change wa
 
 ## How the project is built
 
-- **Layers.** `staging` (11 views, one per source table: rename, type, nothing else, except the tax
-  restatement of the POS), `intermediate` (5 views: the business rules, one per model), `marts`
-  (`core`: the fact and 4 dimensions; `sales`: 2 datamarts; `migration_audit`: 3 audit models).
+- **Layers.** `staging` (11 views, one per source table: rename, nothing else, except on the POS
+  lines the tax restatement, the business day and the rank of each re-export), `intermediate`
+  (5 views: the business rules, one per model), `marts` (`core`: the fact and 4 dimensions;
+  `sales`: 2 datamarts; `migration_audit`: 3 audit models).
   Schemas carry the same names on every target
   ([`generate_schema_name`](macros/generate_schema_name.sql)).
-- **Sources** are declared with descriptions and freshness on `loaded_at`. The sample data is
-  static, so `dbt source freshness` warns by design; it is not a CI gate here.
+- **Sources** are declared with descriptions, and the two platforms with freshness on `loaded_at`.
+  The sample data is static, so `dbt source freshness` warns by design; it is not a CI gate here.
 - **Tests.** 88 generic data tests (keys, relationships, accepted values, ranges), 6 singular tests
   that state an invariant of the migration in plain SQL, and 6 unit tests on the rules that are
   easiest to get wrong. A key that carries an enforced `not_null` constraint has no `not_null`
