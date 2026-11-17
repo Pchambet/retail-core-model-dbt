@@ -20,8 +20,6 @@ select
     planted.defect_code as planted_code,
     detected.defect_code as detected_code
 from planted
-full outer join detected on planted.record_key = detected.record_key
-where
-    planted.record_key is null
-    or detected.record_key is null
-    or planted.defect_code != detected.defect_code
+full outer join detected
+    on planted.record_key = detected.record_key and planted.defect_code = detected.defect_code
+where planted.record_key is null or detected.record_key is null

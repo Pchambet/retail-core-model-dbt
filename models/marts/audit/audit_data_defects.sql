@@ -1,8 +1,10 @@
 {#
-    Every record-level defect the pipeline detects, one row per defective record:
+    Every record-level defect the pipeline detects, one row per record and defect:
     - a POS line exported more than once (the older copies are dropped);
     - an order whose header does not add up to its lines (all its lines are quarantined);
     - any other quarantined line.
+    A record can carry two: a re-exported line whose latest version is quarantined is both a
+    duplicate and, say, an unmapped product.
 #}
 
 with pos_lines as (

@@ -35,8 +35,9 @@ models:
 
   - name: audit_data_defects
     description: >
-      Record-level defects detected in the source data, one row per defective record. Compared
-      with the manifest of the planted defects by a test: all found, none extra.
+      Record-level defects detected in the source data, one row per record and defect: a
+      re-exported line whose latest version is quarantined carries two. Compared with the manifest
+      of the planted defects by a test: all found, none extra.
     columns:
       - name: defect_code
         description: Kind of defect.
@@ -57,7 +58,11 @@ models:
         description: Platform the record comes from.
       - name: record_key
         description: Readable key of the defective record.
-        data_tests: [unique, not_null]
+        data_tests: [not_null]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [record_key, defect_code]
 
   - name: audit_migration_parity
     description: >
