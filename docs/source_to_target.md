@@ -7,7 +7,7 @@ row here or when a row names a column that does not exist.
 | Target column | From the POS (`pos_sales_lines`) | From the OMS (`oms_orders`, `oms_order_lines`, `oms_returns`) | Rule |
 |---|---|---|---|
 | `sales_line_id` | ticket_no, line_no | order_id, line_id or return_id | Hash of the source record key, so that a line exported again keeps its key |
-| `source_record_key` | ticket_no, line_no | order_id, line_id or return_id | Readable key kept for traceability: pos|ticket|line, oms|order|line, oms|return |
+| `source_record_key` | ticket_no, line_no | order_id, line_id or return_id | Readable key kept for traceability: pos\|ticket\|line, oms\|order\|line, oms\|return |
 | `source_system` | constant pos | constant oms | Platform of origin |
 | `document_id` | ticket_no | order_id | A return of the OMS keeps the order it refers to |
 | `line_kind` | sign of qty | table of origin | POS: negative quantity is a return. OMS: oms_order_lines are sales, oms_returns are returns |

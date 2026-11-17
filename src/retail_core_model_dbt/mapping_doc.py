@@ -22,11 +22,17 @@ row here or when a row names a column that does not exist.
 """
 
 
+def cell(text: str) -> str:
+    # A bare pipe would end the cell: the record keys are written pos|ticket|line.
+    return text.replace("|", "\\|")
+
+
 def render(mapping_csv: Path = MAPPING_CSV) -> str:
     with mapping_csv.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     lines = [
-        f"| `{row['target_column']}` | {row['pos_source']} | {row['oms_source']} | {row['rule']} |"
+        f"| `{row['target_column']}` | {cell(row['pos_source'])} | {cell(row['oms_source'])}"
+        f" | {cell(row['rule'])} |"
         for row in rows
     ]
     return HEADER + "\n".join(lines) + "\n"
